@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Футбольный сайт</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="center-container">
+        <!-- Центральная кнопка футбол -->
+        <a href="{{ url_for('football') }}" class="football-btn">ФУТБОЛ 2025-2026</a>
+    </div>
+    <!-- Админ-кнопка и модальное окно -->
+    {% if not session.get('admin_mode') %}
+    <button class="admin-btn" onclick="showModal()">for ADM</button>
+    {% else %}
+    <a href="{{ url_for('exit_admin') }}" class="admin-btn">user</a>
+    {% endif %}
+
+    <div id="adminModal" class="modal">
+        <div class="modal-content">
+            <h3>Введите код администратора</h3>
+            <form action="{{ url_for('check_admin') }}" method="post">
+                <input type="password" name="admin_code" placeholder="Код доступа">
+                <button type="submit">Подтвердить</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showModal() {
+            document.getElementById('adminModal').style.display = 'flex';
+        }
+
+        // Закрытие модального окна при клике вне его
+        window.onclick = function(event) {
+            const modal = document.getElementById('adminModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+<script>
+    // Открытие модального окна
+    function showModal() {
+        document.getElementById('adminModal').style.display = 'flex';
+    }
+
+    // Закрытие при клике вне окна
+    window.onclick = function(event) {
+        const modal = document.getElementById('adminModal');
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    }
+</script>
+</body>
+</html>

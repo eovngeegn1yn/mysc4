@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Футбольные лиги</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="{% if session.get('admin_mode') %}admin-mode{% endif %}">
+   <div class="leagues-container">
+           <!-- Кнопка возврата -->
+    <a href="{{ url_for('home') }}" class="back-btn" title="Вернуться к выбору">← Назад</a>
+    <!-- Заголовок -->
+    <div class="league-header editable" data-field="title">{{ title }}</div>
+
+    <!-- Список лиг -->
+    <ul id="leaguesList" class="leagues-list">
+        {% for league in leagues %}
+        <li class="league-item" data-id="{{ league['id'] }}">
+            <span class="editable league-name" data-field="name">{{ league['name'] }}</span>
+            {% if session.get('admin_mode') %}
+            <button class="delete-btn" onclick="deleteLeague({{ league['id'] }})">×</button>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+
+
+    <!-- Кнопка админа/пользователя -->
+    {% if not session.get('admin_mode') %}
+        <button class="admin-btn" onclick="showModal()">forADM</button>
+    {% else %}
+        <button class="user-btn" onclick="exitAdmin()">forUSER</button>
+        <button class="add-btn" onclick="showAddModal()">+ Добавить лигу</button>
+    {% endif %}
+
+    <!-- Модальное окно для кода -->
+    <div id="adminModal" class="modal">
+        <div class="modal-content">
+            <h3>Введите код администратора</h3>
+            <form onsubmit="event.preventDefault(); checkAdminCode()">
+                <input type="password" id="adminCodeInput" placeholder="Код доступа">
+                <button type="submit">Подтвердить</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для добавления лиги -->
+    <div id="addModal" class="modal">
+        <div class="modal-content">
+            <h3>Добавить новую лигу</h3>
+            <form onsubmit="event.preventDefault(); addLeague()">
+                <input type="text" id="newLeagueName" placeholder="Название лиги" required>
+                <input type="number" id="newLeaguePos" placeholder="Позиция" required>
+                <button type="submit">Добавить</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+    <script>
+        // Админ-функции
+        function showModal() {
+            document.getElementById('adminModal').style.display = 'flex';
+        }
+
+        function showAddModal() {
+            document.getElementById('addModal').style.display = 'flex';
+        }
+
+        function hideModals() {
+            document.getElementById('adminModal').style.display = 'none';
+            document.getElementById('addModal').style.display = 'none';
+        }
+
+        function checkAdminCode() {
+            const code = document.getElementById('adminCodeInput').value;
+            fetch("{{ url_for('check_admin') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `admin_code=${encodeURIComponent(code)}`
+            }).then(() => window.location.reload());
+        }
+
+        function exitAdmin() {
+            fetch("{{ url_for('exit_admin') }}").then(() => window.location.reload());
+        }
+
+        function addLeague() {
+            const name = document.getElementById('newLeagueName').value;
+            const pos = document.getElementById('newLeaguePos').value;
+            fetch("{{ url_for('add_league') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, position: pos })
+            }).then(() => window.location.reload());
+        }
+
+        function deleteLeague(id) {
+            if (confirm('Удалить лигу?')) {
+                fetch("{{ url_for('delete_league', league_id=0) }}".replace('0', id), {
+                    method: 'DELETE'
+                }).then(() => window.location.reload());
+            }
+        }
+
+        // Drag-and-drop для лиг
+        new Sortable(document.getElementById('leaguesList'), {
+            animation: 150,
+            onEnd: function() {
+                const items = document.querySelectorAll('#leaguesList li');
+                items.forEach((item, index) => {
+                    const id = item.dataset.id;
+                    const name = item.querySelector('.editable').innerText;
+                    fetch("{{ url_for('update_league') }}", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id, name, position: index + 1 })
+                    });
+                });
+            }
+        });
+
+        // Редактирование текста
+        document.querySelectorAll('.editable').forEach(element => {
+            element.addEventListener('click', function() {
+                if (document.body.classList.contains('admin-mode')) {
+                    const value = this.innerText;
+                    this.innerHTML = `<input type="text" value="${value}"
+                        onblur="saveText(this, ${this.parentElement.dataset.id || 'null'}, '${this.dataset.field}')">`;
+                    this.querySelector('input').focus();
+                }
+            });
+        });
+
+        function saveText(input, id, field) {
+            const value = input.value;
+            input.parentElement.innerText = value;
+            if (id && field === 'name') {
+                fetch("{{ url_for('update_league') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, name: value, position: 0 })
+                });
+            }
+        }
+
+        // Закрытие модальных окон
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                hideModals();
+            }
+        };
+    </script>
+
+    <script>
+    // Обработчик клика по лиге
+    document.querySelectorAll('.league-item').forEach(item => {
+        item.addEventListener('click', function() {
+            // Удаляем класс active у всех лиг
+            document.querySelectorAll('.league-item').forEach(el => {
+                el.classList.remove('active');
+            });
+
+            // Добавляем класс active к выбранной лиге
+            this.classList.add('active');
+
+            // Сохраняем выбор в localStorage
+            localStorage.setItem('selectedLeague', this.dataset.id);
+        });
+    });
+
+    // Восстанавливаем выбранную лигу при загрузке страницы
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectedId = localStorage.getItem('selectedLeague');
+        if (selectedId) {
+            const selectedItem = document.querySelector(`.league-item[data-id="${selectedId}"]`);
+            if (selectedItem) {
+                selectedItem.classList.add('active');
+            }
+        }
+    });
+</script>
+</body>
+</html>
